@@ -13,7 +13,7 @@ export default function StructurePanel({
   setDesign: React.Dispatch<React.SetStateAction<DialogDesign>>;
 }) {
   return (
-    <aside className="h-full  border border-white/10 bg-slate-900/60 shadow-lg">
+    <aside className="h-full  border-l border-white/10 bg-slate-900/60 shadow-none">
       <div className="p-4 h-full overflow-auto">
         <h2 className="text-sm font-semibold mb-3">Structure</h2>
         <DesignerSection title="">

@@ -1,4 +1,3 @@
-// /components/designer/panels/ColorDockBar.tsx
 "use client";
 
 import React from "react";
@@ -16,16 +15,17 @@ export default function ColorDockBar({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-30">
-      <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen border-t border-white/10 bg-slate-950/70 backdrop-blur supports-[backdrop-filter]:bg-slate-950/50">
-        <div className="mx-auto max-w-7xl px-4 py-3 h-24 overflow-hidden">
+      <div className="relative w-screen border-t border-white/10 bg-slate-950/70 backdrop-blur supports-[backdrop-filter]:bg-slate-950/50">
+        {/* h-28 = 112px; include iOS safe-area inset */}
+        <div className="mx-auto px-10 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] h-28 overflow-hidden">
           <div className="text-xs uppercase tracking-wide text-slate-400">
             Colors
           </div>
 
-          {/* one stable row: 9 equal cells so nothing overlaps */}
+          {/* one stable row: 9 equal cells; align bottoms so labels don't collide */}
           <div
-            className="mt-2 grid gap-3"
-            style={{ gridTemplateColumns: "repeat(9, minmax(120px, 1fr))" }}
+            className="mt-2 grid gap-8 items-end"
+            style={{ gridTemplateColumns: "repeat(9, minmax(140px, 1fr))" }}
           >
             <Field
               label="Background"
@@ -51,7 +51,7 @@ export default function ColorDockBar({
               }
             />
 
-            {/* Border mode toggle (its own cell) */}
+            {/* Border mode toggle (dedicated cell) */}
             <Cell>
               <SmallLabel>Border mode</SmallLabel>
               <div className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export default function ColorDockBar({
               </div>
             </Cell>
 
-            {/* Border / Start (second dedicated cell) */}
+            {/* Border / Start (second border cell) */}
             {!borderIsGradient ? (
               <Field
                 label="Border"
@@ -98,7 +98,7 @@ export default function ColorDockBar({
               />
             )}
 
-            {/* End (third dedicated cell) — keep the cell, hide in solid mode to preserve layout */}
+            {/* End (third border cell). Keep the cell; hide contents in solid mode to preserve layout */}
             <div
               className={
                 !borderIsGradient ? "opacity-0 pointer-events-none" : ""
@@ -179,17 +179,17 @@ function Field({
   return (
     <label className="block min-w-0">
       <SmallLabel>{label}</SmallLabel>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-6 w-6 shrink-0 rounded border border-white/10 bg-transparent"
+          className="h-7 w-7 shrink-0 rounded border border-white/10 bg-transparent p-0"
         />
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-full bg-slate-800/70 border border-white/10 rounded px-2 text-sm"
+          className="h-9 w-full bg-slate-800/70 border border-white/10 rounded px-2 text-sm"
         />
       </div>
     </label>

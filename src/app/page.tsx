@@ -1,24 +1,50 @@
-import Link from "next/link";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import ComponentCard from "@/components/home/ComponentCard";
+import ThemeEditor from "@/components/home/ThemeEditor";
 import { COMPONENTS } from "@/lib/registry/components";
+import { defaultTheme, type UISmithTheme } from "@/lib/theme";
 
 export default function Home() {
+  const [theme, setTheme] = useState<UISmithTheme>(() => {
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem("uismith:theme");
+      if (raw) {
+        try {
+          return JSON.parse(raw) as UISmithTheme;
+        } catch {
+          /* noop */
+        }
+      }
+    }
+    return defaultTheme;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("uismith:theme", JSON.stringify(theme));
+  }, [theme]);
+
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold">What do you want to craft?</h1>
+        <h1 className="text-2xl font-bold mt-4">What do you want to craft?</h1>
         <p className="text-slate-400">Pick a component to design or edit.</p>
       </header>
 
+      {/* Theme row */}
+      <ThemeEditor theme={theme} setTheme={setTheme} />
+
+      {/* Component mapping with themed previews */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {COMPONENTS.map((c) => (
-          <Link
+          <ComponentCard
             key={c.slug}
             href={`/designer/${c.slug}`}
-            className="rounded-xl border border-white/10 bg-slate-900/50 p-4 hover:border-emerald-500/40 transition"
-          >
-            <div className="font-semibold">{c.title}</div>
-            <div className="text-sm text-slate-400">{c.blurb}</div>
-          </Link>
+            title={c.title}
+            blurb={c.blurb}
+            theme={theme}
+          />
         ))}
       </div>
     </div>

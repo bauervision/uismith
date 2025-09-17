@@ -14,7 +14,7 @@ export default function LayoutPanel({
   setDesign: React.Dispatch<React.SetStateAction<DialogDesign>>;
 }) {
   return (
-    <aside className="h-full border border-white/10 bg-slate-900/60 shadow-lg">
+    <aside className="h-full  border-r border-white/10 bg-slate-900/60 shadow-none">
       <div className="p-4 h-full overflow-auto">
         <h2 className="text-sm font-semibold mb-3">Layout & Shape</h2>
         <DesignerSection title="">
@@ -110,18 +110,6 @@ export default function LayoutPanel({
                 }
               />
               <Slider
-                label="Bottom-right"
-                min={0}
-                max={64}
-                value={design.layout.radiusBR}
-                onChange={(n) =>
-                  setDesign((d) => ({
-                    ...d,
-                    layout: { ...d.layout, radiusBR: n },
-                  }))
-                }
-              />
-              <Slider
                 label="Bottom-left"
                 min={0}
                 max={64}
@@ -130,6 +118,18 @@ export default function LayoutPanel({
                   setDesign((d) => ({
                     ...d,
                     layout: { ...d.layout, radiusBL: n },
+                  }))
+                }
+              />
+              <Slider
+                label="Bottom-right"
+                min={0}
+                max={64}
+                value={design.layout.radiusBR}
+                onChange={(n) =>
+                  setDesign((d) => ({
+                    ...d,
+                    layout: { ...d.layout, radiusBR: n },
                   }))
                 }
               />
