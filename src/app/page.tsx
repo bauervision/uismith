@@ -4,23 +4,11 @@ import React, { useEffect, useState } from "react";
 import ComponentCard from "@/components/home/ComponentCard";
 import ThemeEditor from "@/components/home/ThemeEditor";
 import { COMPONENTS } from "@/lib/registry/components";
-import { defaultTheme, type UISmithTheme } from "@/lib/theme";
-import A11yAlerts from "@/components/designer/A11yAlerts";
+import A11yAlerts from "@/components/designer/a11y/A11yAlerts";
+import { usePersistentTheme } from "@/lib/theme/usePersistantTheme";
 
 export default function Home() {
-  const [theme, setTheme] = useState<UISmithTheme>(() => {
-    if (typeof window !== "undefined") {
-      const raw = localStorage.getItem("uismith:theme");
-      if (raw) {
-        try {
-          return JSON.parse(raw) as UISmithTheme;
-        } catch {
-          /* noop */
-        }
-      }
-    }
-    return defaultTheme;
-  });
+  const [theme, setTheme] = usePersistentTheme();
 
   useEffect(() => {
     localStorage.setItem("uismith:theme", JSON.stringify(theme));

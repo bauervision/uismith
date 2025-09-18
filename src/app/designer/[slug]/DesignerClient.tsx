@@ -15,7 +15,9 @@ import { defaultNavbarDesign, type NavbarDesign } from "@/lib/design/navbar";
 import NavbarLayoutPanel from "@/components/designer/panels/navbar/NavbarLayoutPanel";
 import NavbarStructurePanel from "@/components/designer/panels/navbar/NavbarStructurePanel";
 import NavbarPreview from "@/components/preview/NavbarPreview";
-import A11yAlerts from "@/components/designer/A11yAlerts";
+
+import A11yAlerts from "@/components/designer/a11y/A11yAlerts";
+import A11yMagnifier from "@/components/designer/a11y/A11yMagnifier"; // 🆕 add
 
 type Kind = "dialog" | "navbar";
 
@@ -72,6 +74,9 @@ export default function DesignerClient({ slug }: { slug: string }) {
     kind === "dialog" ? setDialogDesign : setNavbarDesign
   ) as any;
 
+  // 🔍 Magnifier targets only the center preview surface
+  const centerRef = useRef<HTMLDivElement | null>(null);
+
   return (
     <div className="relative">
       {/* Pass kind so we can disable export for navbar for now */}
@@ -80,6 +85,7 @@ export default function DesignerClient({ slug }: { slug: string }) {
       <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
         <div className="h-[calc(100vh-56px-48px-112px)] overflow-hidden">
           <div className="grid h-full grid-cols-[300px_minmax(0,1fr)_300px] gap-0">
+            {/* Right */}
             <div className="h-full min-h-0">
               <div className="h-full overflow-auto">
                 {kind === "dialog" ? (
@@ -96,11 +102,16 @@ export default function DesignerClient({ slug }: { slug: string }) {
               </div>
             </div>
 
+            {/* Center */}
             <div
-              className={`h-full min-w-0 ${
+              ref={centerRef}
+              className={`h-full min-w-0 relative ${
                 kind === "navbar" ? "" : "flex items-center justify-center"
               }`}
             >
+              {/* 🔍 A11y Magnifier lives in the preview pane */}
+              <A11yMagnifier containerRef={centerRef} />
+
               {kind === "dialog" ? (
                 <DialogPreview design={design as DialogDesign} />
               ) : (
@@ -108,6 +119,7 @@ export default function DesignerClient({ slug }: { slug: string }) {
               )}
             </div>
 
+            {/* Left */}
             <div className="h-full">
               <div className="h-full overflow-auto">
                 {kind === "dialog" ? (
