@@ -5,6 +5,7 @@ import ComponentCard from "@/components/home/ComponentCard";
 import ThemeEditor from "@/components/home/ThemeEditor";
 import { COMPONENTS } from "@/lib/registry/components";
 import { defaultTheme, type UISmithTheme } from "@/lib/theme";
+import A11yAlerts from "@/components/designer/A11yAlerts";
 
 export default function Home() {
   const [theme, setTheme] = useState<UISmithTheme>(() => {
@@ -48,6 +49,18 @@ export default function Home() {
           />
         ))}
       </div>
+
+      <A11yAlerts
+        themeLike={{
+          bg: theme.bg,
+          fg: theme.fg,
+          titleFg: theme.titleFg,
+          bodyFg: theme.bodyFg,
+          accent: theme.accent,
+          border: theme.border,
+        }}
+        onFixAll={(updated) => setTheme((prev) => ({ ...prev, ...updated }))}
+      />
     </div>
   );
 }

@@ -138,6 +138,20 @@ export default function DesignerClient({ slug }: { slug: string }) {
           accent: design.colors.accent,
           border: design.colors.border,
         }}
+        onFixAll={(u) =>
+          setDesign((d: { colors: any }) => ({
+            ...d,
+            colors: {
+              ...d.colors,
+              bg: u.bg,
+              fg: u.fg,
+              titleFg: u.titleFg,
+              bodyFg: u.bodyFg,
+              accent: u.accent,
+              border: u.border,
+            },
+          }))
+        }
       />
     </div>
   );
