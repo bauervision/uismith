@@ -1,76 +1,144 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { defaultDialogDesign, type DialogDesign } from "@/lib/design/dialog";
-import type { UISmithTheme } from "@/lib/theme"; // ← from your /lib/theme.ts
 import ExportToolbar from "@/components/designer/ExportToolbar";
+import ColorDockBar from "@/components/designer/panels/ColorDockBar";
+
+// dialog bits
+import { defaultDialogDesign, type DialogDesign } from "@/lib/design/dialog";
 import LayoutPanel from "@/components/designer/panels/LayoutPanel";
 import StructurePanel from "@/components/designer/panels/StructurePanel";
 import DialogPreview from "@/components/preview/DialogPreview";
-import ColorDockBar from "@/components/designer/panels/ColorDockBar";
+
+// navbar bits
+import { defaultNavbarDesign, type NavbarDesign } from "@/lib/design/navbar";
+import NavbarLayoutPanel from "@/components/designer/panels/navbar/NavbarLayoutPanel";
+import NavbarStructurePanel from "@/components/designer/panels/navbar/NavbarStructurePanel";
+import NavbarPreview from "@/components/preview/NavbarPreview";
+import A11yAlerts from "@/components/designer/A11yAlerts";
+
+type Kind = "dialog" | "navbar";
 
 export default function DesignerClient({ slug }: { slug: string }) {
-  const [design, setDesign] = useState<DialogDesign>(defaultDialogDesign);
-  const appliedTheme = useRef(false);
+  const kind: Kind = slug === "navbar" ? "navbar" : "dialog";
 
-  // Inject Home theme colors on first mount
+  // Keep separate pieces of state so switching routes doesn’t bleed values
+  const [dialogDesign, setDialogDesign] =
+    useState<DialogDesign>(defaultDialogDesign);
+  const [navbarDesign, setNavbarDesign] =
+    useState<NavbarDesign>(defaultNavbarDesign);
+
+  // Theme injection (from Home)
+  const applied = useRef(false);
   useEffect(() => {
-    if (appliedTheme.current) return;
-    appliedTheme.current = true;
-
+    if (applied.current) return;
+    applied.current = true;
     try {
-      const raw =
-        typeof window !== "undefined"
-          ? localStorage.getItem("uismith:theme")
-          : null;
+      const raw = localStorage.getItem("uismith:theme");
       if (!raw) return;
-      const theme = JSON.parse(raw) as UISmithTheme;
-
-      setDesign((d) => ({
+      const t = JSON.parse(raw) as any;
+      setDialogDesign((d) => ({
         ...d,
         colors: {
           ...d.colors,
-          bg: theme.bg,
-          fg: theme.fg,
-          accent: theme.accent,
-          border: theme.border,
-          titleFg: theme.titleFg,
-          bodyFg: theme.bodyFg,
-          footerBg: theme.footerBg,
-          // If user happens to be in gradient mode, seed start color from theme.border
-          borderGradStart: d.colors.borderGradStart ?? theme.border,
+          bg: t.bg,
+          fg: t.fg,
+          accent: t.accent,
+          border: t.border,
+          titleFg: t.titleFg,
+          bodyFg: t.bodyFg,
+          footerBg: t.footerBg,
         },
       }));
-    } catch {
-      // ignore parse errors
-    }
+      setNavbarDesign((d) => ({
+        ...d,
+        colors: {
+          ...d.colors,
+          bg: t.bg,
+          fg: t.fg,
+          accent: t.accent,
+          border: t.border,
+          titleFg: t.titleFg,
+          bodyFg: t.bodyFg,
+          footerBg: t.footerBg,
+        },
+      }));
+    } catch {}
   }, []);
+
+  // pick active model + setters
+  const design = kind === "dialog" ? dialogDesign : navbarDesign;
+  const setDesign = (
+    kind === "dialog" ? setDialogDesign : setNavbarDesign
+  ) as any;
 
   return (
     <div className="relative">
-      <ExportToolbar design={design} />
+      {/* Pass kind so we can disable export for navbar for now */}
+      <ExportToolbar design={design as any} kind={kind} />
+
       <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
         <div className="h-[calc(100vh-56px-48px-112px)] overflow-hidden">
           <div className="grid h-full grid-cols-[300px_minmax(0,1fr)_300px] gap-0">
-            <div className="h-full">
+            <div className="h-full min-h-0">
               <div className="h-full overflow-auto">
-                <LayoutPanel design={design} setDesign={setDesign} />
+                {kind === "dialog" ? (
+                  <LayoutPanel
+                    design={design as DialogDesign}
+                    setDesign={setDesign}
+                  />
+                ) : (
+                  <NavbarLayoutPanel
+                    design={design as NavbarDesign}
+                    setDesign={setDesign}
+                  />
+                )}
               </div>
             </div>
 
-            <div className="h-full min-w-0 flex items-center justify-center">
-              <DialogPreview design={design} />
+            <div
+              className={`h-full min-w-0 ${
+                kind === "navbar" ? "" : "flex items-center justify-center"
+              }`}
+            >
+              {kind === "dialog" ? (
+                <DialogPreview design={design as DialogDesign} />
+              ) : (
+                <NavbarPreview design={design as NavbarDesign} />
+              )}
             </div>
 
             <div className="h-full">
               <div className="h-full overflow-auto">
-                <StructurePanel design={design} setDesign={setDesign} />
+                {kind === "dialog" ? (
+                  <StructurePanel
+                    design={design as DialogDesign}
+                    setDesign={setDesign}
+                  />
+                ) : (
+                  <NavbarStructurePanel
+                    design={design as NavbarDesign}
+                    setDesign={setDesign}
+                  />
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
-      <ColorDockBar design={design} setDesign={setDesign} />
+
+      <ColorDockBar design={design as any} setDesign={setDesign} />
+
+      <A11yAlerts
+        themeLike={{
+          bg: design.colors.bg,
+          fg: design.colors.fg,
+          titleFg: design.colors.titleFg,
+          bodyFg: design.colors.bodyFg,
+          accent: design.colors.accent,
+          border: design.colors.border,
+        }}
+      />
     </div>
   );
 }

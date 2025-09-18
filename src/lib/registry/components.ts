@@ -13,7 +13,7 @@ export const COMPONENTS: {
   {
     slug: "navbar",
     title: "Navbar",
-    blurb: "Site navigation bar (coming soon)",
+    blurb: "Responsive top bar with hamburger",
   },
   { slug: "login", title: "Login", blurb: "Auth form (coming soon)" },
 ];

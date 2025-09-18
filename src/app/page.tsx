@@ -44,6 +44,7 @@ export default function Home() {
             title={c.title}
             blurb={c.blurb}
             theme={theme}
+            slug={c.slug}
           />
         ))}
       </div>
