@@ -12,6 +12,7 @@
     "deploy:preview": "firebase hosting:channel:deploy preview --expires 7d"
   },
   "dependencies": {
+    "file-saver": "^2.0.5",
     "framer-motion": "^12.23.13",
     "jszip": "^3.10.1",
     "lucide-react": "^0.544.0",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

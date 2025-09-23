@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import type { NavbarDesign } from "@/lib/design/navbar";
 import { mapShadowToBoxShadow } from "@/lib/design/shadow";
 
@@ -46,9 +46,9 @@ export default function NavbarPreview({ design }: { design: NavbarDesign }) {
   const isGradient = design.colors.borderMode === "gradient";
   const border = isGradient
     ? `${design.layout.borderWidth}px solid transparent`
-    : `${design.layout.borderWidth}px solid ${design.colors.border}`;
+    : `${design.layout.borderWidth}px solid var(--border)`;
 
-  const bgSolid = design.colors.bg;
+  const bgSolid = "var(--bg)";
   const background = isGradient
     ? `linear-gradient(${bgSolid}, ${bgSolid}) padding-box,
        linear-gradient(${design.layout.borderGradientAngle}deg, ${design.colors.borderGradStart}, ${design.colors.borderGradEnd}) border-box`
@@ -56,7 +56,7 @@ export default function NavbarPreview({ design }: { design: NavbarDesign }) {
 
   const wrapper: React.CSSProperties = {
     background,
-    color: design.colors.fg,
+    color: "var(--fg)",
     border,
     boxShadow: mapShadowToBoxShadow(design.layout.shadow),
     width: "100%",
@@ -82,7 +82,7 @@ export default function NavbarPreview({ design }: { design: NavbarDesign }) {
           <DeviceFrame
             width={mobileWidth}
             height={mobileHeight}
-            border={design.colors.border}
+            border="var(--border)"
           >
             <div style={wrapper}>
               <Bar
@@ -91,15 +91,15 @@ export default function NavbarPreview({ design }: { design: NavbarDesign }) {
                 setOpen={setOpen}
                 desktopOnlyStyle={desktopOnlyStyle}
                 mobileOnlyStyle={mobileOnlyStyle}
-                triggerRef={triggerRef} // accepts RefObject<HTMLButtonElement | null>
+                triggerRef={triggerRef}
                 menuId={menuId}
               />
               <MobileSheet
                 design={design}
                 open={open}
                 menuId={menuId}
-                firstLinkRef={firstLinkRef} // accepts RefObject<HTMLAnchorElement | null>
-                sheetRef={sheetRef} // accepts RefObject<HTMLDivElement | null>
+                firstLinkRef={firstLinkRef}
+                sheetRef={sheetRef}
               />
             </div>
           </DeviceFrame>
@@ -145,7 +145,6 @@ function Bar({
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   desktopOnlyStyle: React.CSSProperties;
   mobileOnlyStyle: React.CSSProperties;
-  // FIX: allow nullable ref object
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   menuId: string;
 }) {
@@ -153,7 +152,7 @@ function Bar({
 
   const renderHamburger = () => {
     const t = mm.hamburgerThickness;
-    const common = { height: t, width: 16, background: design.colors.fg };
+    const common = { height: t, width: 16, background: "var(--fg)" as const };
     if (mm.hamburgerVariant === "dots") {
       const s = Math.max(2, t + 2);
       return (
@@ -162,7 +161,7 @@ function Bar({
             style={{
               width: s,
               height: s,
-              background: design.colors.fg,
+              background: "var(--fg)",
               borderRadius: s,
             }}
           />
@@ -170,7 +169,7 @@ function Bar({
             style={{
               width: s,
               height: s,
-              background: design.colors.fg,
+              background: "var(--fg)",
               borderRadius: s,
             }}
           />
@@ -178,7 +177,7 @@ function Bar({
             style={{
               width: s,
               height: s,
-              background: design.colors.fg,
+              background: "var(--fg)",
               borderRadius: s,
             }}
           />
@@ -207,7 +206,7 @@ function Bar({
       {design.structure.showBrand && (
         <div
           className="text-sm font-semibold"
-          style={{ color: design.colors.titleFg }}
+          style={{ color: "var(--title-fg)" }}
         >
           UISmith
         </div>
@@ -219,7 +218,7 @@ function Bar({
           className="hidden md:flex items-center"
           style={{
             gap: design.layout.gap,
-            color: design.colors.bodyFg,
+            color: "var(--body-fg)",
             ...desktopOnlyStyle,
           }}
         >
@@ -244,18 +243,18 @@ function Bar({
             <button
               className="text-[11px] rounded-full px-3 py-2 border"
               style={{
-                borderColor: `${design.colors.fg}33`,
-                color: design.colors.fg,
+                borderColor: "color-mix(in srgb, var(--fg) 20%, transparent)",
+                color: "var(--fg)",
                 ...desktopOnlyStyle,
               }}
             >
               {design.structure.secondaryCta}
             </button>
             <button
-              className="text-[11px] rounded-full px-3 py-2 font-semibold"
+              className="text:[11px] rounded-full px-3 py-2 font-semibold"
               style={{
-                background: design.colors.accent,
-                color: "#0b0f17",
+                background: "var(--accent)",
+                color: "#0b0f17", // consider --on-accent later
                 ...desktopOnlyStyle,
               }}
             >
@@ -269,7 +268,7 @@ function Bar({
             ref={triggerRef}
             className="md:hidden inline-flex items-center justify-center rounded-md border"
             style={{
-              borderColor: `${design.colors.fg}26`,
+              borderColor: "color-mix(in srgb, var(--fg) 15%, transparent)",
               ...mobileOnlyStyle,
               minWidth: 44,
               minHeight: 44,
@@ -298,7 +297,6 @@ function MobileSheet({
   design: NavbarDesign;
   open: boolean;
   menuId: string;
-  // FIX: allow nullable ref objects
   firstLinkRef: React.RefObject<HTMLAnchorElement | null>;
   sheetRef: React.RefObject<HTMLDivElement | null>;
 }) {
@@ -330,9 +328,9 @@ function MobileSheet({
     <div
       className="border-t px-3 py-2"
       style={{
-        borderTop: `1px solid ${design.colors.border}`,
+        borderTop: `1px solid var(--border)`,
         background: "transparent",
-        color: design.colors.bodyFg,
+        color: "var(--body-fg)",
       }}
       role="region"
       aria-label="Mobile navigation"
@@ -342,7 +340,7 @@ function MobileSheet({
         id={menuId}
         className="overflow-hidden"
         style={{
-          background: mm.bg || design.colors.footerBg,
+          background: mm.bg || "var(--footer-bg)",
           width: isFull ? "100%" : mm.contextualWidth,
           marginLeft: mm.align === "left" ? 0 : "auto",
           marginRight: mm.align === "right" ? 0 : "auto",
@@ -367,7 +365,6 @@ function MobileSheet({
   );
 }
 
-/** Fixed-size phone frame; content scrolls, frame does not resize */
 function DeviceFrame({
   width,
   height,
@@ -388,7 +385,7 @@ function DeviceFrame({
         borderRadius: 28,
         border: `1px solid ${border}`,
         boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-        background: "#0b0f17",
+        background: "var(--bg)",
       }}
     >
       <div className="h-4 relative">
@@ -410,7 +407,6 @@ function DeviceFrame({
   );
 }
 
-/** Bottom center controls: fixed so it never gets clipped */
 function ViewportControls({
   mode,
   setMode,
@@ -450,7 +446,6 @@ function ViewportControls({
         >
           Mobile
         </button>
-
         {mode === "mobile" && (
           <div className="ml-1 flex items-center gap-1">
             <span className="text-xs text-slate-400">W</span>

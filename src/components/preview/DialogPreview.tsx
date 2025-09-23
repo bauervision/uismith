@@ -83,9 +83,9 @@ export default function DialogPreview({ design }: { design: DialogDesign }) {
   const isGradient = design.colors.borderMode === "gradient";
   const border = isGradient
     ? `${design.layout.borderWidth}px solid transparent`
-    : `${design.layout.borderWidth}px solid ${design.colors.border}`;
+    : `${design.layout.borderWidth}px solid var(--border)`;
 
-  const bgSolid = design.colors.bg;
+  const bgSolid = "var(--bg)";
   const background = isGradient
     ? `linear-gradient(${bgSolid}, ${bgSolid}) padding-box,
        linear-gradient(${design.layout.borderGradientAngle ?? 90}deg, ${
@@ -97,9 +97,8 @@ export default function DialogPreview({ design }: { design: DialogDesign }) {
     maxWidth: design.layout.maxWidth?.base ?? 560,
     width: "100%",
     background,
-    color: design.colors.fg,
+    color: "var(--fg)",
     border,
-    // FIX: dialog uses design.shadow (root), not layout.shadow
     boxShadow: mapShadowToBoxShadow(design.shadow),
     padding: design.layout.padding?.base ?? 20,
     display: "flex",
@@ -137,7 +136,7 @@ export default function DialogPreview({ design }: { design: DialogDesign }) {
             {design.structure.showTitle && (
               <div
                 className="flex items-center justify-between"
-                style={{ color: design.colors.titleFg }}
+                style={{ color: "var(--title-fg)" }}
               >
                 <h2 id={titleId} className="text-sm font-semibold">
                   Dialog title
@@ -147,11 +146,7 @@ export default function DialogPreview({ design }: { design: DialogDesign }) {
                     aria-label="Close dialog"
                     onClick={() => setOpen(false)}
                     className="rounded-md px-2 py-1 hover:bg-white/10"
-                    style={{
-                      minWidth: 44,
-                      minHeight: 32,
-                      color: design.colors.fg,
-                    }}
+                    style={{ minWidth: 44, minHeight: 32, color: "var(--fg)" }}
                   >
                     ×
                   </button>
@@ -163,7 +158,7 @@ export default function DialogPreview({ design }: { design: DialogDesign }) {
               <div
                 id={descId}
                 className="text-sm"
-                style={{ color: design.colors.bodyFg }}
+                style={{ color: "var(--body-fg)" }}
               >
                 This is the body of your dialog. It traps focus, closes on Esc,
                 and restores focus.
@@ -175,7 +170,7 @@ export default function DialogPreview({ design }: { design: DialogDesign }) {
                 <button
                   className="text-sm rounded-full px-3 py-1.5"
                   style={{
-                    background: design.colors.accent,
+                    background: "var(--accent)",
                     color: "#0b0f17",
                     fontWeight: 600,
                   }}
@@ -186,8 +181,9 @@ export default function DialogPreview({ design }: { design: DialogDesign }) {
                   className="text-sm rounded-full px-3 py-1.5"
                   style={{
                     background: "transparent",
-                    color: design.colors.fg,
-                    border: `1px solid ${design.colors.fg}33`,
+                    color: "var(--fg)",
+                    border:
+                      "1px solid color-mix(in srgb, var(--fg) 20%, transparent)",
                   }}
                 >
                   Secondary
