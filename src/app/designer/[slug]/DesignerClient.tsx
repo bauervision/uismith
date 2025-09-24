@@ -1,49 +1,54 @@
+// app/designer/DesignerClient.tsx
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import * as React from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import type { Variants, Easing } from "framer-motion";
+
 import ExportToolbar from "@/components/designer/ExportToolbar";
 import ColorDockBar from "@/components/designer/panels/ColorDockBar";
 
-// dialog bits
+// Dialog bits
 import { defaultDialogDesign, type DialogDesign } from "@/lib/design/dialog";
 import LayoutPanel from "@/components/designer/panels/LayoutPanel";
 import StructurePanel from "@/components/designer/panels/StructurePanel";
 import DialogPreview from "@/components/preview/DialogPreview";
 
-// navbar bits
+// Navbar bits
 import { defaultNavbarDesign, type NavbarDesign } from "@/lib/design/navbar";
 import NavbarLayoutPanel from "@/components/designer/panels/navbar/NavbarLayoutPanel";
 import NavbarStructurePanel from "@/components/designer/panels/navbar/NavbarStructurePanel";
 import NavbarPreview from "@/components/preview/NavbarPreview";
 
+// A11y & Motion
 import A11yAlerts from "@/components/designer/a11y/A11yAlerts";
-import A11yMagnifier from "@/components/designer/a11y/A11yMagnifier";
-
-import { motion } from "framer-motion";
-import type { Variants, Easing } from "framer-motion";
-
+import A11yMagnifier, {
+  A11yMagnifierHandle,
+} from "@/components/designer/a11y/A11yMagnifier";
 import {
   MotionSettingsProvider,
   useMotionSettings,
 } from "@/app/providers/MotionSettingsProvider";
-import MotionConfigDialog from "@/components/designer/MotionConfigDialog";
 import MotionConfigPanel from "@/components/designer/MotionConfigDialog";
 
 type Kind = "dialog" | "navbar";
 
-/* ------- Local helper to build variants from Motion settings ------- */
+/* ------- Motion variants from settings ------- */
 function useVariants() {
   const { reduced, easingValue, durationMult, secs, settings } =
     useMotionSettings();
+
   const ease = easingValue as Easing;
-  const f = (ms: number) => secs(ms * (durationMult || 0)); // if reduced → 0s
+  const scale = durationMult || 0;
+  const t = (ms: number) => secs(ms * scale);
 
   const initialVariant = reduced ? "show" : "hidden";
   const animateVariant = "show";
 
   const barV: Variants = {
     hidden: { opacity: 0, y: -8 },
-    show: { opacity: 1, y: 0, transition: { duration: f(350), ease } },
+    show: { opacity: 1, y: 0, transition: { duration: t(350), ease } },
   };
   const colLeftV: Variants = {
     hidden: { opacity: 0, x: -16, scale: 0.98 },
@@ -51,7 +56,7 @@ function useVariants() {
       opacity: 1,
       x: 0,
       scale: 1,
-      transition: { duration: f(settings.baseDurationMs + 100), ease },
+      transition: { duration: t(settings.baseDurationMs + 100), ease },
     },
   };
   const colRightV: Variants = {
@@ -60,7 +65,7 @@ function useVariants() {
       opacity: 1,
       x: 0,
       scale: 1,
-      transition: { duration: f(settings.baseDurationMs + 100), ease },
+      transition: { duration: t(settings.baseDurationMs + 100), ease },
     },
   };
   const centerV: Variants = {
@@ -68,20 +73,14 @@ function useVariants() {
     show: {
       opacity: 1,
       scale: 1,
-      transition: { duration: f(settings.baseDurationMs), ease, delay: f(50) },
+      transition: { duration: t(settings.baseDurationMs), ease, delay: t(50) },
     },
   };
 
-  return {
-    initialVariant,
-    animateVariant,
-    barV,
-    colLeftV,
-    colRightV,
-    centerV,
-  };
+  return { initialVariant, animateVariant, barV, colLeftV, colRightV, centerV };
 }
 
+/* ---------------- Root wrapper ---------------- */
 export default function DesignerClient({ slug }: { slug: string }) {
   return (
     <MotionSettingsProvider>
@@ -90,16 +89,16 @@ export default function DesignerClient({ slug }: { slug: string }) {
   );
 }
 
+/* ---------------- Page ---------------- */
 function DesignerClientInner({ slug }: { slug: string }) {
   const kind: Kind = slug === "navbar" ? "navbar" : "dialog";
 
-  // Keep separate pieces of state so switching routes doesn’t bleed values
   const [dialogDesign, setDialogDesign] =
     useState<DialogDesign>(defaultDialogDesign);
   const [navbarDesign, setNavbarDesign] =
     useState<NavbarDesign>(defaultNavbarDesign);
 
-  // Theme injection (from Home)
+  // apply theme from Home (once)
   const applied = useRef(false);
   useEffect(() => {
     if (applied.current) return;
@@ -137,27 +136,35 @@ function DesignerClientInner({ slug }: { slug: string }) {
     } catch {}
   }, []);
 
-  // pick active model + setters
   const design = kind === "dialog" ? dialogDesign : navbarDesign;
   const setDesign = (
     kind === "dialog" ? setDialogDesign : setNavbarDesign
   ) as React.Dispatch<React.SetStateAction<any>>;
 
-  // Magnifier targets only the center preview surface
+  // refs
   const centerRef = useRef<HTMLDivElement | null>(null);
+  const magRef = useRef<A11yMagnifierHandle | null>(null);
 
-  // Motion bits
+  // motion
   const { barV, colLeftV, colRightV, centerV, initialVariant, animateVariant } =
     useVariants();
 
-  // Dialog open
+  // motion panel state
   const [motionOpen, setMotionOpen] = useState(false);
+
+  const DOCK_BASE = 124; // current position above ColorDockBar
+  const VIEWPORT_CTRL_H = 48; // approximate pill height incl. shadow
+  const EXTRA_GAP = 12; // breathing room between the two rows
+  const dockBottom =
+    kind === "navbar"
+      ? DOCK_BASE + VIEWPORT_CTRL_H + EXTRA_GAP // lift dock when navbar controls are present
+      : DOCK_BASE;
 
   return (
     <div className="relative min-h-screen">
       <AuroraBgFixed />
 
-      {/* Top bar (unchanged) */}
+      {/* Top toolbar */}
       <motion.div
         variants={barV}
         initial={initialVariant}
@@ -167,7 +174,7 @@ function DesignerClientInner({ slug }: { slug: string }) {
         <ExportToolbar design={design as any} kind={kind} />
       </motion.div>
 
-      {/* Full-width working area */}
+      {/* Full-width grid */}
       <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen z-10">
         <div className="h-[calc(100vh-56px-48px-112px)] overflow-hidden">
           <div className="grid h-full grid-cols-[300px_minmax(0,1fr)_300px] gap-0">
@@ -200,54 +207,67 @@ function DesignerClientInner({ slug }: { slug: string }) {
               variants={centerV}
               initial={initialVariant}
               animate={animateVariant}
-              className={`h-full min-w-0 relative will-change-transform ${
+              className={`h-full min-w-0 relative overflow-hidden will-change-transform ${
                 kind === "navbar" ? "" : "flex items-center justify-center"
               }`}
             >
-              {/* A11y Magnifier lives here */}
-              <A11yMagnifier containerRef={centerRef} />
+              {/* A11y magnifier; hide built-in trigger */}
+              <A11yMagnifier
+                ref={magRef}
+                containerRef={centerRef}
+                renderTrigger={false}
+              />
 
-              {/* Your previews */}
+              {/* Preview */}
               {kind === "dialog" ? (
                 <DialogPreview design={design as DialogDesign} />
               ) : (
                 <NavbarPreview design={design as NavbarDesign} />
               )}
 
-              {/* —— Controls cluster (bottom-right), near "Inspect Accessibility" —— */}
+              {/* Bottom-center dock */}
               <div
-                className="absolute right-4 z-40 flex flex-col items-end gap-2"
-                style={{
-                  // place above ColorDockBar (112px) + small gap
-                  bottom: 124,
-                }}
+                className="absolute inset-x-0 z-[80] pointer-events-none"
+                style={{ bottom: dockBottom }}
               >
-                {/* Motion trigger */}
-                <button
-                  onClick={() => setMotionOpen((v) => !v)}
-                  className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
-                  style={{
-                    borderColor: "var(--border)",
-                    color: "var(--fg)",
-                    background:
-                      "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
-                  }}
-                  title="Motion settings"
-                >
-                  🎞 Motion
-                </button>
+                <div className="mx-auto w-fit flex items-center gap-2 pointer-events-auto">
+                  <button
+                    onClick={() => magRef.current?.toggle()}
+                    className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                    style={{
+                      borderColor: "var(--border)",
+                      color: "var(--fg)",
+                      background:
+                        "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                    }}
+                    title="Inspect Accessibility (Alt+I)"
+                  >
+                    🔎 Inspect Accessibility
+                  </button>
 
-                {/* Anchored panel (appears just above the button) */}
-                <div className="relative">
-                  {/* offset the panel upward a bit so it doesn't collide with the button */}
-                  <div className={motionOpen ? "" : "hidden"}>
-                    <div className="mb-2" />
+                  <button
+                    onClick={() => setMotionOpen((v) => !v)}
+                    className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                    style={{
+                      borderColor: "var(--border)",
+                      color: "var(--fg)",
+                      background:
+                        "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                    }}
+                    title="Motion settings"
+                  >
+                    🎞 Motion
+                  </button>
+                </div>
+
+                {motionOpen && (
+                  <div className="mx-auto mt-2 w-fit pointer-events-auto relative z-[90]">
                     <MotionConfigPanel
                       open={motionOpen}
                       onClose={() => setMotionOpen(false)}
                     />
                   </div>
-                </div>
+                )}
               </div>
             </motion.div>
 
@@ -276,8 +296,10 @@ function DesignerClientInner({ slug }: { slug: string }) {
         </div>
       </div>
 
+      {/* Color dock */}
       <ColorDockBar design={design as any} setDesign={setDesign} />
 
+      {/* A11y Alerts */}
       <A11yAlerts
         themeLike={{
           bg: design.colors.bg,
@@ -306,7 +328,7 @@ function DesignerClientInner({ slug }: { slug: string }) {
   );
 }
 
-/* ---------- Full-page aurora background (fixed to viewport) ---------- */
+/* ---------- Background ---------- */
 function AuroraBgFixed() {
   return (
     <>
