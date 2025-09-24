@@ -31,6 +31,8 @@ import {
   useMotionSettings,
 } from "@/app/providers/MotionSettingsProvider";
 import MotionConfigPanel from "@/components/designer/MotionConfigDialog";
+import { useConfig } from "@/app/providers/ConfigProvider";
+import { kebab } from "@/lib/strings";
 
 type Kind = "dialog" | "navbar";
 
@@ -91,8 +93,11 @@ export default function DesignerClient({ slug }: { slug: string }) {
 
 /* ---------------- Page ---------------- */
 function DesignerClientInner({ slug }: { slug: string }) {
-  const kind: Kind = slug === "navbar" ? "navbar" : "dialog";
+  const { config } = useConfig();
+  const pkg = kebab(config.packageName || "app-ui");
 
+  const kind: Kind = slug === "navbar" ? "navbar" : "dialog";
+  const exportBase = `${pkg}-${kind}`; // pass into your download/export helpers
   const [dialogDesign, setDialogDesign] =
     useState<DialogDesign>(defaultDialogDesign);
   const [navbarDesign, setNavbarDesign] =
