@@ -10,6 +10,7 @@ export type GlobalConfig = {
   fileStructure: "nested" | "flat"; // components/feedback/Dialog.tsx vs components/Dialog.tsx
   cssVarPrefix: string; // e.g. "" | "ui-"
   classPrefix: string; // e.g. "" | "ui-"
+  motionMode: string;
 };
 
 const STORAGE_KEY = "uismith:config";
@@ -22,6 +23,7 @@ const DEFAULT: GlobalConfig = {
   fileStructure: "nested",
   cssVarPrefix: "",
   classPrefix: "",
+  motionMode: "on" as "on" | "reduced" | "off",
 };
 
 type Ctx = {
