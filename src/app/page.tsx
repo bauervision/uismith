@@ -10,6 +10,8 @@ import A11yAlerts from "@/components/designer/a11y/A11yAlerts";
 import { useTheme } from "./providers/ThemeProvider";
 import GlobalConfigDialog from "@/components/home/GlobalConfigDialog";
 import { useConfig } from "./providers/ConfigProvider";
+import { useMotionMode } from "./hooks/useMotionMode";
+import TabButton from "@/components/home/TabButton";
 
 /* ---------- Motion setup (typed) ---------- */
 
@@ -66,12 +68,46 @@ export default function Home() {
   const { theme, setTheme } = useTheme();
   const { config } = useConfig();
   const [openConfig, setOpenConfig] = React.useState(false);
-
+  const [activeKind, setActiveKind] = React.useState<"simple" | "functional">(
+    "simple"
+  );
+  const motionMode = useMotionMode() ?? "on";
   // Never leave content "hidden" after hydration:
   // if reduced motion → start visible; otherwise animate in.
   const prefersReducedMotion = useReducedMotion();
   const initialVariant = prefersReducedMotion ? "show" : "hidden";
   const animateVariant = "show";
+
+  // counts for the tabs
+  const simpleCount = React.useMemo(
+    () => COMPONENTS.filter((c) => c.kind === "simple").length,
+    []
+  );
+  const functionalCount = React.useMemo(
+    () => COMPONENTS.filter((c) => c.kind === "functional").length,
+    []
+  );
+
+  const items = React.useMemo(() => {
+    const seen = new Set<string>();
+    return COMPONENTS.filter((c) => c.kind === activeKind).filter((c) => {
+      if (seen.has(c.slug)) return false;
+      seen.add(c.slug);
+      return true;
+    });
+  }, [activeKind]);
+
+  // keep your existing eases but make sure they're typed tuples:
+  const easeSoft: Easing = [0.2, 0.8, 0.2, 1];
+  const easeSnap: Easing = [0.16, 1, 0.3, 1];
+
+  const listTrans =
+    motionMode === "off"
+      ? undefined
+      : {
+          duration: motionMode === "reduced" ? 0.12 : 0.22,
+          ease: easeSoft,
+        };
 
   return (
     <div className="relative min-h-screen">
@@ -149,16 +185,41 @@ export default function Home() {
           </motion.div>
         </motion.section>
 
+        <section className="mt-4">
+          <nav
+            role="tablist"
+            aria-label="Component class"
+            className="inline-flex items-center rounded-full border p-1"
+            style={{
+              borderColor: "color-mix(in srgb, var(--fg) 18%, transparent)",
+            }}
+          >
+            <TabButton
+              id="tab-simple"
+              active={activeKind === "simple"}
+              onClick={() => setActiveKind("simple")}
+              label={`Simple (${simpleCount})`}
+            />
+            <TabButton
+              id="tab-functional"
+              active={activeKind === "functional"}
+              onClick={() => setActiveKind("functional")}
+              label={`Functional (${functionalCount})`}
+            />
+          </nav>
+        </section>
+
         {/* Components grid with staggered cards */}
         <motion.div
           variants={gridV}
           initial={initialVariant}
           animate={animateVariant}
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5"
+          key={activeKind}
         >
-          {COMPONENTS.map((c) => (
+          {items.map((c, idx) => (
             <motion.div
-              key={c.slug}
+              key={`${c.slug}-${idx}`}
               variants={cardV}
               className="will-change-transform"
             >
