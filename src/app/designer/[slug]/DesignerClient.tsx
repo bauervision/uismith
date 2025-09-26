@@ -21,6 +21,12 @@ import NavbarLayoutPanel from "@/components/designer/panels/navbar/NavbarLayoutP
 import NavbarStructurePanel from "@/components/designer/panels/navbar/NavbarStructurePanel";
 import NavbarPreview from "@/components/preview/NavbarPreview";
 
+// Minis for simple components
+import MiniButton from "@/components/mini/MiniButton";
+import MiniSheet from "@/components/mini/MiniSheet";
+import MiniTabs from "@/components/mini/MiniTabs";
+import MiniLogin from "@/components/mini/MiniLogin";
+
 // A11y & Motion
 import A11yAlerts from "@/components/designer/a11y/A11yAlerts";
 import A11yMagnifier, {
@@ -33,6 +39,9 @@ import {
 import MotionConfigPanel from "@/components/designer/MotionConfigDialog";
 import { useConfig } from "@/app/providers/ConfigProvider";
 import { kebab } from "@/lib/strings";
+
+// Theme type for minis
+import type { UISmithTheme } from "@/lib/theme";
 
 type Kind = "dialog" | "navbar";
 
@@ -82,6 +91,26 @@ function useVariants() {
   return { initialVariant, animateVariant, barV, colLeftV, colRightV, centerV };
 }
 
+/* ------- Mini preview switch (button/sheet/tabs/login/…) ------- */
+function MiniPreviewSwitch({
+  slug,
+  theme,
+}: {
+  slug: string;
+  theme: UISmithTheme;
+}) {
+  const s = slug.toLowerCase();
+  if (s === "button") return <MiniButton theme={theme} />;
+  if (s === "sheet") return <MiniSheet theme={theme} />;
+  if (s === "tabs") return <MiniTabs theme={theme} />;
+  if (s === "login") return <MiniLogin theme={theme} />;
+  return (
+    <div className="text-xs opacity-70 p-3">
+      Preview coming soon for <code>{slug}</code>.
+    </div>
+  );
+}
+
 /* ---------------- Root wrapper ---------------- */
 export default function DesignerClient({ slug }: { slug: string }) {
   return (
@@ -96,12 +125,20 @@ function DesignerClientInner({ slug }: { slug: string }) {
   const { config } = useConfig();
   const pkg = kebab(config.packageName || "app-ui");
 
-  const kind: Kind = slug === "navbar" ? "navbar" : "dialog";
-  const exportBase = `${pkg}-${kind}`; // pass into your download/export helpers
+  // Full designer pages are only: dialog, navbar
+  const isFull = slug === "dialog" || slug === "navbar";
+  const fullKind: Kind | null = isFull ? (slug as Kind) : null;
+
   const [dialogDesign, setDialogDesign] =
     useState<DialogDesign>(defaultDialogDesign);
   const [navbarDesign, setNavbarDesign] =
     useState<NavbarDesign>(defaultNavbarDesign);
+
+  // Pick active design source (dialog for minis)
+  const design = fullKind === "navbar" ? navbarDesign : dialogDesign;
+  const setDesign = (
+    fullKind === "navbar" ? setNavbarDesign : setDialogDesign
+  ) as React.Dispatch<React.SetStateAction<any>>;
 
   // apply theme from Home (once)
   const applied = useRef(false);
@@ -141,10 +178,16 @@ function DesignerClientInner({ slug }: { slug: string }) {
     } catch {}
   }, []);
 
-  const design = kind === "dialog" ? dialogDesign : navbarDesign;
-  const setDesign = (
-    kind === "dialog" ? setDialogDesign : setNavbarDesign
-  ) as React.Dispatch<React.SetStateAction<any>>;
+  // Minis consume a UISmithTheme derived from active design
+  const miniTheme: UISmithTheme = {
+    bg: design.colors.bg,
+    fg: design.colors.fg,
+    accent: design.colors.accent,
+    border: design.colors.border,
+    titleFg: design.colors.titleFg,
+    bodyFg: design.colors.bodyFg,
+    footerBg: design.colors.footerBg,
+  };
 
   // refs
   const centerRef = useRef<HTMLDivElement | null>(null);
@@ -157,13 +200,14 @@ function DesignerClientInner({ slug }: { slug: string }) {
   // motion panel state
   const [motionOpen, setMotionOpen] = useState(false);
 
+  // position ColorDockBar above viewport controls when navbar kind shows extra UI
   const DOCK_BASE = 124; // current position above ColorDockBar
   const VIEWPORT_CTRL_H = 48; // approximate pill height incl. shadow
   const EXTRA_GAP = 12; // breathing room between the two rows
   const dockBottom =
-    kind === "navbar"
-      ? DOCK_BASE + VIEWPORT_CTRL_H + EXTRA_GAP // lift dock when navbar controls are present
-      : DOCK_BASE;
+    fullKind === "navbar" ? DOCK_BASE + VIEWPORT_CTRL_H + EXTRA_GAP : DOCK_BASE;
+
+  const exportBase = `${pkg}-${fullKind ?? slug}`; // still useful if you encode the kind in downloads
 
   return (
     <div className="relative min-h-screen">
@@ -176,128 +220,206 @@ function DesignerClientInner({ slug }: { slug: string }) {
         animate={animateVariant}
         className="relative z-20"
       >
-        <ExportToolbar design={design as any} kind={kind} />
+        {/* ExportToolbar expects a 'kind' as 'dialog' | 'navbar'; pass dialog for minis */}
+        <ExportToolbar
+          design={design as any}
+          kind={(fullKind ?? "dialog") as Kind}
+        />
       </motion.div>
 
       {/* Full-width grid */}
       <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen z-10">
         <div className="h-[calc(100vh-56px-48px-112px)] overflow-hidden">
-          <div className="grid h-full grid-cols-[300px_minmax(0,1fr)_300px] gap-0">
-            {/* Left controls */}
-            <motion.div
-              variants={colLeftV}
-              initial={initialVariant}
-              animate={animateVariant}
-              className="h-full min-h-0 will-change-transform"
-            >
-              <div className="h-full overflow-auto">
-                {kind === "dialog" ? (
-                  <LayoutPanel
-                    design={design as DialogDesign}
-                    setDesign={setDesign}
-                  />
-                ) : (
-                  <NavbarLayoutPanel
-                    design={design as NavbarDesign}
-                    setDesign={setDesign}
-                  />
-                )}
-              </div>
-            </motion.div>
-
-            {/* Center preview */}
-            <motion.div
-              key={kind}
-              ref={centerRef as any}
-              variants={centerV}
-              initial={initialVariant}
-              animate={animateVariant}
-              className={`h-full min-w-0 relative overflow-hidden will-change-transform ${
-                kind === "navbar" ? "" : "flex items-center justify-center"
-              }`}
-            >
-              {/* A11y magnifier; hide built-in trigger */}
-              <A11yMagnifier
-                ref={magRef}
-                containerRef={centerRef}
-                renderTrigger={false}
-              />
-
-              {/* Preview */}
-              {kind === "dialog" ? (
-                <DialogPreview design={design as DialogDesign} />
-              ) : (
-                <NavbarPreview design={design as NavbarDesign} />
-              )}
-
-              {/* Bottom-center dock */}
-              <div
-                className="absolute inset-x-0 z-[80] pointer-events-none"
-                style={{ bottom: dockBottom }}
+          {isFull ? (
+            // ===== FULL DESIGNER (dialog/navbar) =====
+            <div className="grid h-full grid-cols-[300px_minmax(0,1fr)_300px] gap-0">
+              {/* Left controls */}
+              <motion.div
+                variants={colLeftV}
+                initial={initialVariant}
+                animate={animateVariant}
+                className="h-full min-h-0 will-change-transform"
               >
-                <div className="mx-auto w-fit flex items-center gap-2 pointer-events-auto">
-                  <button
-                    onClick={() => magRef.current?.toggle()}
-                    className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
-                    style={{
-                      borderColor: "var(--border)",
-                      color: "var(--fg)",
-                      background:
-                        "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
-                    }}
-                    title="Inspect Accessibility (Alt+I)"
-                  >
-                    🔎 Inspect Accessibility
-                  </button>
+                <div className="h-full overflow-auto">
+                  {fullKind === "dialog" ? (
+                    <LayoutPanel
+                      design={design as DialogDesign}
+                      setDesign={setDesign}
+                    />
+                  ) : (
+                    <NavbarLayoutPanel
+                      design={design as NavbarDesign}
+                      setDesign={setDesign}
+                    />
+                  )}
+                </div>
+              </motion.div>
 
-                  <button
-                    onClick={() => setMotionOpen((v) => !v)}
-                    className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
-                    style={{
-                      borderColor: "var(--border)",
-                      color: "var(--fg)",
-                      background:
-                        "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
-                    }}
-                    title="Motion settings"
-                  >
-                    🎞 Motion
-                  </button>
+              {/* Center preview */}
+              <motion.div
+                key={fullKind ?? "mini"}
+                ref={centerRef as any}
+                variants={centerV}
+                initial={initialVariant}
+                animate={animateVariant}
+                className={`h-full min-w-0 relative overflow-hidden will-change-transform ${
+                  fullKind === "navbar"
+                    ? ""
+                    : "flex items-center justify-center"
+                }`}
+              >
+                {/* A11y magnifier; hide built-in trigger */}
+                <A11yMagnifier
+                  ref={magRef}
+                  containerRef={centerRef}
+                  renderTrigger={false}
+                />
+
+                {/* Preview */}
+                {fullKind === "dialog" ? (
+                  <DialogPreview design={design as DialogDesign} />
+                ) : (
+                  <NavbarPreview design={design as NavbarDesign} />
+                )}
+
+                {/* Bottom-center dock */}
+                <div
+                  className="absolute inset-x-0 z-[80] pointer-events-none"
+                  style={{ bottom: dockBottom }}
+                >
+                  <div className="mx-auto w-fit flex items-center gap-2 pointer-events-auto">
+                    <button
+                      onClick={() => magRef.current?.toggle()}
+                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--fg)",
+                        background:
+                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                      }}
+                      title="Inspect Accessibility (Alt+I)"
+                    >
+                      🔎 Inspect Accessibility
+                    </button>
+
+                    <button
+                      onClick={() => setMotionOpen((v) => !v)}
+                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--fg)",
+                        background:
+                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                      }}
+                      title="Motion settings"
+                    >
+                      🎞 Motion
+                    </button>
+                  </div>
+
+                  {motionOpen && (
+                    <div className="mx-auto mt-2 w-fit pointer-events-auto relative z-[90]">
+                      <MotionConfigPanel
+                        open={motionOpen}
+                        onClose={() => setMotionOpen(false)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Right controls */}
+              <motion.div
+                variants={colRightV}
+                initial={initialVariant}
+                animate={animateVariant}
+                className="h-full will-change-transform"
+              >
+                <div className="h-full overflow-auto">
+                  {fullKind === "dialog" ? (
+                    <StructurePanel
+                      design={design as DialogDesign}
+                      setDesign={setDesign}
+                    />
+                  ) : (
+                    <NavbarStructurePanel
+                      design={design as NavbarDesign}
+                      setDesign={setDesign}
+                    />
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          ) : (
+            // ===== MINI PREVIEW (button/sheet/tabs/login/…) =====
+            <div className="grid h-full grid-cols-[minmax(0,1fr)]">
+              <motion.div
+                key={`mini-${slug}`}
+                ref={centerRef as any}
+                variants={centerV}
+                initial={initialVariant}
+                animate={animateVariant}
+                className="relative h-full min-w-0 overflow-hidden flex items-center justify-center"
+              >
+                {/* A11y magnifier; hide built-in trigger */}
+                <A11yMagnifier
+                  ref={magRef}
+                  containerRef={centerRef}
+                  renderTrigger={false}
+                />
+
+                {/* The actual mini */}
+                <div className="max-w-xl w-full px-6">
+                  <MiniPreviewSwitch slug={slug} theme={miniTheme} />
                 </div>
 
-                {motionOpen && (
-                  <div className="mx-auto mt-2 w-fit pointer-events-auto relative z-[90]">
-                    <MotionConfigPanel
-                      open={motionOpen}
-                      onClose={() => setMotionOpen(false)}
-                    />
-                  </div>
-                )}
-              </div>
-            </motion.div>
+                {/* Bottom-center dock */}
+                <div
+                  className="absolute inset-x-0 z-[80] pointer-events-none"
+                  style={{ bottom: dockBottom }}
+                >
+                  <div className="mx-auto w-fit flex items-center gap-2 pointer-events-auto">
+                    <button
+                      onClick={() => magRef.current?.toggle()}
+                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--fg)",
+                        background:
+                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                      }}
+                      title="Inspect Accessibility (Alt+I)"
+                    >
+                      🔎 Inspect Accessibility
+                    </button>
 
-            {/* Right controls */}
-            <motion.div
-              variants={colRightV}
-              initial={initialVariant}
-              animate={animateVariant}
-              className="h-full will-change-transform"
-            >
-              <div className="h-full overflow-auto">
-                {kind === "dialog" ? (
-                  <StructurePanel
-                    design={design as DialogDesign}
-                    setDesign={setDesign}
-                  />
-                ) : (
-                  <NavbarStructurePanel
-                    design={design as NavbarDesign}
-                    setDesign={setDesign}
-                  />
-                )}
-              </div>
-            </motion.div>
-          </div>
+                    <button
+                      onClick={() => setMotionOpen((v) => !v)}
+                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--fg)",
+                        background:
+                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                      }}
+                      title="Motion settings"
+                    >
+                      🎞 Motion
+                    </button>
+                  </div>
+
+                  {motionOpen && (
+                    <div className="mx-auto mt-2 w-fit pointer-events-auto relative z-[90]">
+                      <MotionConfigPanel
+                        open={motionOpen}
+                        onClose={() => setMotionOpen(false)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
         </div>
       </div>
 
