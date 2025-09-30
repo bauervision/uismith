@@ -6,13 +6,111 @@ import { useMotionMode } from "@/app/hooks/useMotionMode";
 
 const easeSnap: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-export default function MiniSheet({ theme }: { theme: UISmithTheme }) {
+export default function MiniSheet({
+  theme,
+  // accept anything to be compat with current/next panel schemas
+  design,
+}: {
+  theme: UISmithTheme;
+  design?: any; // <-- key change: loosen type to avoid TS property errors
+}) {
   const mode = useMotionMode();
   const [open, setOpen] = React.useState(false);
-
   const dur = mode === "reduced" ? 0.12 : 0.22;
-
   const Container: any = mode === "off" ? "div" : motion.div;
+
+  // ---------- COMPAT LAYER ----------
+  const L = (design?.layout ?? {}) as any;
+  const S = (design?.structure ?? {}) as any;
+
+  // layout (with safe fallbacks)
+  const pos: "right" | "left" | "bottom" | "center" = L.position ?? "right";
+  const widthMode: "full" | "contextual" = L.widthMode ?? "contextual";
+  const contextualWidth: number = L.contextualWidth ?? 320;
+  const padding: number = L.padding ?? 20;
+  const shadow: number = L.shadow ?? 24;
+
+  const radiusMode: "uniform" | "custom" = L.radiusMode ?? "uniform";
+  const radiusStyle: React.CSSProperties =
+    radiusMode === "custom"
+      ? {
+          borderTopLeftRadius: `${L.radiusTL ?? 16}px`,
+          borderTopRightRadius: `${L.radiusTR ?? 16}px`,
+          borderBottomRightRadius: `${L.radiusBR ?? 16}px`,
+          borderBottomLeftRadius: `${L.radiusBL ?? 16}px`,
+        }
+      : { borderRadius: `${L.radius ?? 16}px` };
+
+  const panelDim: React.CSSProperties = (() => {
+    if (pos === "left" || pos === "right") {
+      return {
+        width: widthMode === "contextual" ? `${contextualWidth}px` : "320px",
+      };
+    }
+    if (pos === "bottom") {
+      return {
+        width: "100%",
+        maxWidth:
+          widthMode === "contextual" ? `${contextualWidth}px` : undefined,
+      };
+    }
+    // center
+    return {
+      width: "calc(100% - 32px)",
+      maxWidth: widthMode === "contextual" ? `${contextualWidth}px` : "560px",
+    };
+  })();
+
+  // structure (support both your current keys and the newer ones)
+  const showHeader = S.showHeader !== false; // default true
+  const showFooter = S.showFooter !== false; // default true
+  const showClose = S.showClose !== false; // default true
+  const showDividers = !!S.showDividers; // default false if missing
+
+  const title = S.title ?? S.headerTitle ?? "Sheet title";
+  const subtitle = S.subtitle ?? ""; // optional
+  const primaryCta = S.primaryCta ?? "Continue";
+  const secondaryCta = S.secondaryCta ?? "Cancel";
+  // ---------- END COMPAT LAYER ----------
+
+  const panelBase: React.CSSProperties = {
+    ...radiusStyle,
+    ...panelDim,
+    padding,
+    background: theme.bg,
+    borderColor: theme.border,
+    color: theme.fg,
+    boxShadow: `0 8px ${Math.round(shadow / 2)}px -6px #0006, 0 2px 0 1px ${
+      theme.border
+    }33`,
+  };
+
+  const getAnim = () => {
+    if (pos === "right")
+      return { initial: { x: "100%" }, animate: { x: 0 }, exit: { x: "100%" } };
+    if (pos === "left")
+      return {
+        initial: { x: "-100%" },
+        animate: { x: 0 },
+        exit: { x: "-100%" },
+      };
+    if (pos === "bottom")
+      return { initial: { y: "100%" }, animate: { y: 0 }, exit: { y: "100%" } };
+    return {
+      initial: { opacity: 0, y: 10, scale: 0.985 },
+      animate: { opacity: 1, y: 0, scale: 1 },
+      exit: { opacity: 0, y: 8, scale: 0.985 },
+    };
+  };
+
+  const panelPlacement =
+    pos === "right"
+      ? "absolute right-0 top-0 h-full border-l"
+      : pos === "left"
+      ? "absolute left-0 top-0 h-full border-r"
+      : pos === "bottom"
+      ? "absolute left-0 right-0 bottom-0 border-t"
+      : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border";
 
   return (
     <Container
@@ -57,34 +155,82 @@ export default function MiniSheet({ theme }: { theme: UISmithTheme }) {
               onClick={() => setOpen(false)}
             />
             <div
-              className="absolute right-0 top-0 h-full w-[280px] border-l p-3"
               role="dialog"
               aria-modal="true"
               aria-label="Mini sheet"
-              style={{
-                background: theme.bg,
-                borderColor: theme.border,
-                color: theme.fg,
-              }}
+              className={`${panelPlacement} p-3`}
+              style={panelBase}
             >
-              <div className="flex items-center justify-between">
+              {/* Header */}
+              {showHeader && (
                 <div
-                  className="text-xs font-semibold"
-                  style={{ color: theme.titleFg }}
+                  className="flex items-start justify-between"
+                  style={{
+                    borderBottom: showDividers
+                      ? `1px solid ${theme.border}`
+                      : "none",
+                    paddingBottom: showDividers ? 10 : 0,
+                  }}
                 >
-                  Panel
+                  <div>
+                    <div
+                      className="text-xs font-semibold"
+                      style={{ color: theme.titleFg }}
+                    >
+                      {title}
+                    </div>
+                    {subtitle && (
+                      <div
+                        className="text-[11px]"
+                        style={{ color: theme.bodyFg }}
+                      >
+                        {subtitle}
+                      </div>
+                    )}
+                  </div>
+                  {showClose && (
+                    <button
+                      onClick={() => setOpen(false)}
+                      className="text-[11px] rounded-md px-2 py-1"
+                      style={{ border: `1px solid ${theme.fg}33` }}
+                      aria-label="Close"
+                    >
+                      Close
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="text-[11px] rounded-md px-2 py-1"
-                  style={{ border: `1px solid ${theme.fg}33` }}
-                >
-                  Close
-                </button>
-              </div>
+              )}
+
+              {/* Body */}
               <div className="mt-2 text-[11px]" style={{ color: theme.bodyFg }}>
                 Edge-docked panel content…
               </div>
+
+              {/* Footer */}
+              {showFooter && (
+                <div
+                  className="mt-3 flex gap-2 justify-end"
+                  style={{
+                    borderTop: showDividers
+                      ? `1px solid ${theme.border}`
+                      : "none",
+                    paddingTop: showDividers ? 10 : 0,
+                  }}
+                >
+                  <button
+                    className="text-[11px] rounded border px-2 py-1"
+                    style={{ borderColor: theme.border, color: theme.fg }}
+                  >
+                    {secondaryCta}
+                  </button>
+                  <button
+                    className="text-[11px] rounded px-2 py-1 font-semibold"
+                    style={{ background: theme.accent, color: "#0b0f17" }}
+                  >
+                    {primaryCta}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )
@@ -92,7 +238,6 @@ export default function MiniSheet({ theme }: { theme: UISmithTheme }) {
         <AnimatePresence>
           {open && (
             <motion.div className="fixed inset-0 z-50" initial={false}>
-              {/* overlay */}
               <motion.button
                 aria-label="Close"
                 className="absolute inset-0"
@@ -103,43 +248,88 @@ export default function MiniSheet({ theme }: { theme: UISmithTheme }) {
                 transition={{ duration: dur, ease: easeSnap }}
                 style={{ background: `${theme.fg}26` }}
               />
-              {/* panel */}
               <motion.div
                 role="dialog"
                 aria-modal="true"
                 aria-label="Mini sheet"
-                className="absolute right-0 top-0 h-full w-[280px] border-l p-3"
-                style={{
-                  background: theme.bg,
-                  borderColor: theme.border,
-                  color: theme.fg,
-                }}
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
+                className={`${panelPlacement} p-3`}
+                style={panelBase}
+                {...getAnim()}
                 transition={{ duration: dur, ease: easeSnap }}
               >
-                <div className="flex items-center justify-between">
+                {/* Header */}
+                {showHeader && (
                   <div
-                    className="text-xs font-semibold"
-                    style={{ color: theme.titleFg }}
+                    className="flex items-start justify-between"
+                    style={{
+                      borderBottom: showDividers
+                        ? `1px solid ${theme.border}`
+                        : "none",
+                      paddingBottom: showDividers ? 10 : 0,
+                    }}
                   >
-                    Panel
+                    <div>
+                      <div
+                        className="text-xs font-semibold"
+                        style={{ color: theme.titleFg }}
+                      >
+                        {title}
+                      </div>
+                      {subtitle && (
+                        <div
+                          className="text-[11px]"
+                          style={{ color: theme.bodyFg }}
+                        >
+                          {subtitle}
+                        </div>
+                      )}
+                    </div>
+                    {showClose && (
+                      <button
+                        onClick={() => setOpen(false)}
+                        className="text-[11px] rounded-md px-2 py-1"
+                        style={{ border: `1px solid ${theme.fg}33` }}
+                        aria-label="Close"
+                      >
+                        Close
+                      </button>
+                    )}
                   </div>
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="text-[11px] rounded-md px-2 py-1"
-                    style={{ border: `1px solid ${theme.fg}33` }}
-                  >
-                    Close
-                  </button>
-                </div>
+                )}
+
+                {/* Body */}
                 <div
                   className="mt-2 text-[11px]"
                   style={{ color: theme.bodyFg }}
                 >
                   Edge-docked panel content…
                 </div>
+
+                {/* Footer */}
+                {showFooter && (
+                  <div
+                    className="mt-3 flex gap-2 justify-end"
+                    style={{
+                      borderTop: showDividers
+                        ? `1px solid ${theme.border}`
+                        : "none",
+                      paddingTop: showDividers ? 10 : 0,
+                    }}
+                  >
+                    <button
+                      className="text-[11px] rounded border px-2 py-1"
+                      style={{ borderColor: theme.border, color: theme.fg }}
+                    >
+                      {secondaryCta}
+                    </button>
+                    <button
+                      className="text-[11px] rounded px-2 py-1 font-semibold"
+                      style={{ background: theme.accent, color: "#0b0f17" }}
+                    >
+                      {primaryCta}
+                    </button>
+                  </div>
+                )}
               </motion.div>
             </motion.div>
           )}

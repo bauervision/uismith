@@ -109,6 +109,30 @@ export default function Home() {
           ease: easeSoft,
         };
 
+  const tabsV: Variants = {
+    hidden: { opacity: 0, y: 8 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: easeSoft,
+        when: "beforeChildren",
+        staggerChildren: 0.06,
+        delayChildren: 0.05,
+      },
+    },
+  };
+
+  const tabItemV: Variants = {
+    hidden: { opacity: 0, scale: 0.96 },
+    show: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.22, ease: easeSoft },
+    },
+  };
+
   return (
     <div className="relative min-h-screen">
       <AuroraBgFixed />
@@ -185,28 +209,36 @@ export default function Home() {
           </motion.div>
         </motion.section>
 
-        <section className="mt-4">
-          <nav
+        <section className="mt-4 flex justify-center">
+          <motion.nav
             role="tablist"
             aria-label="Component class"
-            className="inline-flex items-center rounded-full border p-1"
+            className="inline-flex items-center rounded-full border p-1 will-change-transform"
             style={{
               borderColor: "color-mix(in srgb, var(--fg) 18%, transparent)",
             }}
+            variants={tabsV}
+            initial={initialVariant}
+            animate={animateVariant}
           >
-            <TabButton
-              id="tab-simple"
-              active={activeKind === "simple"}
-              onClick={() => setActiveKind("simple")}
-              label={`Simple (${simpleCount})`}
-            />
-            <TabButton
-              id="tab-functional"
-              active={activeKind === "functional"}
-              onClick={() => setActiveKind("functional")}
-              label={`Functional (${functionalCount})`}
-            />
-          </nav>
+            <motion.div variants={tabItemV}>
+              <TabButton
+                id="tab-simple"
+                active={activeKind === "simple"}
+                onClick={() => setActiveKind("simple")}
+                label={`Simple (${simpleCount})`}
+              />
+            </motion.div>
+
+            <motion.div variants={tabItemV}>
+              <TabButton
+                id="tab-functional"
+                active={activeKind === "functional"}
+                onClick={() => setActiveKind("functional")}
+                label={`Functional (${functionalCount})`}
+              />
+            </motion.div>
+          </motion.nav>
         </section>
 
         {/* Components grid with staggered cards */}

@@ -5,6 +5,7 @@ import { defaultTheme } from "@/lib/theme";
 import { ThemeProvider } from "./providers/ThemeProvider";
 import { DataProvider } from "./providers/DataProvider";
 import { ConfigProvider } from "./providers/ConfigProvider";
+import { DesignerSettingsProvider } from "./providers/DesignerSettingsProvider";
 
 export const metadata: Metadata = {
   title: "UiSmith",
@@ -32,10 +33,12 @@ export default function RootLayout({
       <body className="bg-slate-950 text-slate-100 overflow-x-hidden">
         <DataProvider baseUrl={process.env.NEXT_PUBLIC_API_BASE}>
           <ConfigProvider>
-            <ThemeProvider>
-              <Navbar />
-              <main className="mx-auto max-w-7xl">{children}</main>
-            </ThemeProvider>
+            <DesignerSettingsProvider>
+              <ThemeProvider>
+                <Navbar />
+                <main className="mx-auto max-w-7xl">{children}</main>
+              </ThemeProvider>
+            </DesignerSettingsProvider>
           </ConfigProvider>
         </DataProvider>
       </body>

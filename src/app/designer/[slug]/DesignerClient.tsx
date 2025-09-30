@@ -9,25 +9,6 @@ import type { Variants, Easing } from "framer-motion";
 import ExportToolbar from "@/components/designer/ExportToolbar";
 import ColorDockBar from "@/components/designer/panels/ColorDockBar";
 
-// Dialog bits
-import { defaultDialogDesign, type DialogDesign } from "@/lib/design/dialog";
-import LayoutPanel from "@/components/designer/panels/LayoutPanel";
-import StructurePanel from "@/components/designer/panels/StructurePanel";
-import DialogPreview from "@/components/preview/DialogPreview";
-
-// Navbar bits
-import { defaultNavbarDesign, type NavbarDesign } from "@/lib/design/navbar";
-import NavbarLayoutPanel from "@/components/designer/panels/navbar/NavbarLayoutPanel";
-import NavbarStructurePanel from "@/components/designer/panels/navbar/NavbarStructurePanel";
-import NavbarPreview from "@/components/preview/NavbarPreview";
-
-// Minis for simple components
-import MiniButton from "@/components/mini/MiniButton";
-import MiniSheet from "@/components/mini/MiniSheet";
-import MiniTabs from "@/components/mini/MiniTabs";
-import MiniLogin from "@/components/mini/MiniLogin";
-
-// A11y & Motion
 import A11yAlerts from "@/components/designer/a11y/A11yAlerts";
 import A11yMagnifier, {
   A11yMagnifierHandle,
@@ -39,13 +20,20 @@ import {
 import MotionConfigPanel from "@/components/designer/MotionConfigDialog";
 import { useConfig } from "@/app/providers/ConfigProvider";
 import { kebab } from "@/lib/strings";
-
-// Theme type for minis
 import type { UISmithTheme } from "@/lib/theme";
 
-type Kind = "dialog" | "navbar";
+// EXTERNAL registry/types/stores
 
-/* ------- Motion variants from settings ------- */
+// Global shared settings (mounted once at app root; do NOT wrap here)
+import { useDesignerSettings } from "@/app/providers/DesignerSettingsProvider";
+import { useDesignStores } from "@/components/designer/_usedesignStores";
+import {
+  DesignerSlug,
+  VALID_SLUGS,
+} from "@/components/designer/_designerTypes";
+import { REGISTRY } from "@/components/designer/_registry";
+
+/* ------------------------------- Motion ---------------------------------- */
 function useVariants() {
   const { reduced, easingValue, durationMult, secs, settings } =
     useMotionSettings();
@@ -91,28 +79,9 @@ function useVariants() {
   return { initialVariant, animateVariant, barV, colLeftV, colRightV, centerV };
 }
 
-/* ------- Mini preview switch (button/sheet/tabs/login/…) ------- */
-function MiniPreviewSwitch({
-  slug,
-  theme,
-}: {
-  slug: string;
-  theme: UISmithTheme;
-}) {
-  const s = slug.toLowerCase();
-  if (s === "button") return <MiniButton theme={theme} />;
-  if (s === "sheet") return <MiniSheet theme={theme} />;
-  if (s === "tabs") return <MiniTabs theme={theme} />;
-  if (s === "login") return <MiniLogin theme={theme} />;
-  return (
-    <div className="text-xs opacity-70 p-3">
-      Preview coming soon for <code>{slug}</code>.
-    </div>
-  );
-}
-
-/* ---------------- Root wrapper ---------------- */
+/* -------------------------------- Root ----------------------------------- */
 export default function DesignerClient({ slug }: { slug: string }) {
+  // IMPORTANT: DesignerSettingsProvider should be mounted once in app/layout.tsx
   return (
     <MotionSettingsProvider>
       <DesignerClientInner slug={slug} />
@@ -120,27 +89,54 @@ export default function DesignerClient({ slug }: { slug: string }) {
   );
 }
 
-/* ---------------- Page ---------------- */
+/* -------------------------------- Page ----------------------------------- */
 function DesignerClientInner({ slug }: { slug: string }) {
+  const { settings, setSettings } = useDesignerSettings();
+
+  // Seed the design stores from global settings *at initialization time only*.
+  // This guarantees navigating to a new slug starts with the current global padding.
+  const stores = useDesignStores({ padding: settings.padding });
+
   const { config } = useConfig();
   const pkg = kebab(config.packageName || "app-ui");
 
-  // Full designer pages are only: dialog, navbar
-  const isFull = slug === "dialog" || slug === "navbar";
-  const fullKind: Kind | null = isFull ? (slug as Kind) : null;
+  const [dialogDesign, setDialogDesign] = stores.dialog;
+  const [navbarDesign, setNavbarDesign] = stores.navbar;
+  const [buttonDesign, setButtonDesign] = stores.button;
+  const [sheetDesign, setSheetDesign] = stores.sheet;
 
-  const [dialogDesign, setDialogDesign] =
-    useState<DialogDesign>(defaultDialogDesign);
-  const [navbarDesign, setNavbarDesign] =
-    useState<NavbarDesign>(defaultNavbarDesign);
+  // active slug (fallback to dialog if unknown)
+  const isSlug = (x: string): x is DesignerSlug =>
+    (VALID_SLUGS as readonly string[]).includes(x);
+  const active: DesignerSlug = isSlug(slug) ? slug : "dialog";
 
-  // Pick active design source (dialog for minis)
-  const design = fullKind === "navbar" ? navbarDesign : dialogDesign;
-  const setDesign = (
-    fullKind === "navbar" ? setNavbarDesign : setDialogDesign
-  ) as React.Dispatch<React.SetStateAction<any>>;
+  // pick registry + active store
+  const entry = REGISTRY[active];
+  const [activeDesign, setActiveDesign] =
+    active === "dialog"
+      ? stores.dialog
+      : active === "navbar"
+      ? stores.navbar
+      : active === "button"
+      ? stores.button
+      : stores.sheet;
 
-  // apply theme from Home (once)
+  // theme source: navbar uses its own theme; others use dialog theme
+  const themeSource = active === "navbar" ? navbarDesign : dialogDesign;
+  const miniTheme: UISmithTheme = {
+    bg: themeSource.colors.bg,
+    fg: themeSource.colors.fg,
+    accent: themeSource.colors.accent,
+    border: themeSource.colors.border,
+    titleFg: themeSource.colors.titleFg,
+    bodyFg: themeSource.colors.bodyFg,
+    footerBg: themeSource.colors.footerBg,
+  };
+
+  // ExportToolbar only accepts "dialog" | "navbar"
+  const exportKind: "dialog" | "navbar" = entry.exportKind;
+
+  // apply theme from Home (once) into dialog + navbar colors
   const applied = useRef(false);
   useEffect(() => {
     if (applied.current) return;
@@ -176,18 +172,7 @@ function DesignerClientInner({ slug }: { slug: string }) {
         },
       }));
     } catch {}
-  }, []);
-
-  // Minis consume a UISmithTheme derived from active design
-  const miniTheme: UISmithTheme = {
-    bg: design.colors.bg,
-    fg: design.colors.fg,
-    accent: design.colors.accent,
-    border: design.colors.border,
-    titleFg: design.colors.titleFg,
-    bodyFg: design.colors.bodyFg,
-    footerBg: design.colors.footerBg,
-  };
+  }, [setDialogDesign, setNavbarDesign]);
 
   // refs
   const centerRef = useRef<HTMLDivElement | null>(null);
@@ -197,17 +182,70 @@ function DesignerClientInner({ slug }: { slug: string }) {
   const { barV, colLeftV, colRightV, centerV, initialVariant, animateVariant } =
     useVariants();
 
-  // motion panel state
+  // motion config panel
   const [motionOpen, setMotionOpen] = useState(false);
 
-  // position ColorDockBar above viewport controls when navbar kind shows extra UI
-  const DOCK_BASE = 124; // current position above ColorDockBar
-  const VIEWPORT_CTRL_H = 48; // approximate pill height incl. shadow
-  const EXTRA_GAP = 12; // breathing room between the two rows
+  // bottom dock positioning
+  const DOCK_BASE = 124;
+  const VIEWPORT_CTRL_H = 48;
+  const EXTRA_GAP = 12;
   const dockBottom =
-    fullKind === "navbar" ? DOCK_BASE + VIEWPORT_CTRL_H + EXTRA_GAP : DOCK_BASE;
+    active === "navbar" ? DOCK_BASE + VIEWPORT_CTRL_H + EXTRA_GAP : DOCK_BASE;
 
-  const exportBase = `${pkg}-${fullKind ?? slug}`; // still useful if you encode the kind in downloads
+  /* ----------------- ACTIVE DESIGN → GLOBAL SETTINGS (one-way, loop-proof) ---------------- */
+  const readPadding = React.useCallback((d: any): number | undefined => {
+    if (!d?.layout) return undefined;
+    const candidate = d.layout.padding ?? d.layout.paddingX;
+    if (typeof candidate === "number") return candidate;
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      typeof candidate.value === "number"
+    ) {
+      return candidate.value;
+    }
+    return undefined;
+  }, []);
+
+  const activePadding =
+    active === "dialog"
+      ? readPadding(dialogDesign)
+      : active === "navbar"
+      ? readPadding(navbarDesign)
+      : active === "button"
+      ? readPadding(buttonDesign)
+      : readPadding(sheetDesign);
+
+  const prevActivePaddingRef = useRef<number | undefined>(activePadding);
+
+  useEffect(() => {
+    const prev = prevActivePaddingRef.current;
+    const curr = activePadding;
+    if (typeof curr === "number" && curr !== prev) {
+      prevActivePaddingRef.current = curr;
+      if (curr !== settings.padding) {
+        setSettings((s) => ({ ...s, padding: curr }));
+      }
+    }
+    // Watch only the active design’s padding fields so we don't loop.
+  }, [
+    active,
+    // Active design's padding fields only:
+    active === "dialog" ? (dialogDesign as any)?.layout?.padding : undefined,
+    active === "dialog" ? (dialogDesign as any)?.layout?.paddingX : undefined,
+    active === "navbar" ? (navbarDesign as any)?.layout?.padding : undefined,
+    active === "navbar" ? (navbarDesign as any)?.layout?.paddingX : undefined,
+    active === "button" ? (buttonDesign as any)?.layout?.padding : undefined,
+    active === "button" ? (buttonDesign as any)?.layout?.paddingX : undefined,
+    active === "sheet" ? (sheetDesign as any)?.layout?.padding : undefined,
+    active === "sheet" ? (sheetDesign as any)?.layout?.paddingX : undefined,
+
+    activePadding,
+    settings.padding,
+    setSettings,
+    readPadding,
+  ]);
+  /* ---------------------------------------------------------------------------------------- */
 
   return (
     <div className="relative min-h-screen">
@@ -220,242 +258,147 @@ function DesignerClientInner({ slug }: { slug: string }) {
         animate={animateVariant}
         className="relative z-20"
       >
-        {/* ExportToolbar expects a 'kind' as 'dialog' | 'navbar'; pass dialog for minis */}
-        <ExportToolbar
-          design={design as any}
-          kind={(fullKind ?? "dialog") as Kind}
-        />
+        <ExportToolbar design={activeDesign as any} kind={exportKind} />
       </motion.div>
 
       {/* Full-width grid */}
       <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen z-10">
         <div className="h-[calc(100vh-56px-48px-112px)] overflow-hidden">
-          {isFull ? (
-            // ===== FULL DESIGNER (dialog/navbar) =====
-            <div className="grid h-full grid-cols-[300px_minmax(0,1fr)_300px] gap-0">
-              {/* Left controls */}
-              <motion.div
-                variants={colLeftV}
-                initial={initialVariant}
-                animate={animateVariant}
-                className="h-full min-h-0 will-change-transform"
-              >
-                <div className="h-full overflow-auto">
-                  {fullKind === "dialog" ? (
-                    <LayoutPanel
-                      design={design as DialogDesign}
-                      setDesign={setDesign}
-                    />
-                  ) : (
-                    <NavbarLayoutPanel
-                      design={design as NavbarDesign}
-                      setDesign={setDesign}
-                    />
-                  )}
-                </div>
-              </motion.div>
-
-              {/* Center preview */}
-              <motion.div
-                key={fullKind ?? "mini"}
-                ref={centerRef as any}
-                variants={centerV}
-                initial={initialVariant}
-                animate={animateVariant}
-                className={`h-full min-w-0 relative overflow-hidden will-change-transform ${
-                  fullKind === "navbar"
-                    ? ""
-                    : "flex items-center justify-center"
-                }`}
-              >
-                {/* A11y magnifier; hide built-in trigger */}
-                <A11yMagnifier
-                  ref={magRef}
-                  containerRef={centerRef}
-                  renderTrigger={false}
+          <div className="grid h-full grid-cols-[300px_minmax(0,1fr)_300px] gap-0">
+            {/* Left controls */}
+            <motion.div
+              variants={colLeftV}
+              initial={initialVariant}
+              animate={animateVariant}
+              className="h-full min-h-0 will-change-transform"
+            >
+              <div className="h-full overflow-auto">
+                <entry.left
+                  design={activeDesign as any}
+                  setDesign={setActiveDesign as any}
                 />
+              </div>
+            </motion.div>
 
-                {/* Preview */}
-                {fullKind === "dialog" ? (
-                  <DialogPreview design={design as DialogDesign} />
-                ) : (
-                  <NavbarPreview design={design as NavbarDesign} />
+            {/* Center preview */}
+            <motion.div
+              key={active}
+              ref={centerRef as any}
+              variants={centerV}
+              initial={initialVariant}
+              animate={animateVariant}
+              className={`h-full min-w-0 relative overflow-hidden will-change-transform ${
+                entry.centerClass ?? ""
+              }`}
+            >
+              {/* A11y magnifier; hide built-in trigger */}
+              <A11yMagnifier
+                ref={magRef}
+                containerRef={centerRef}
+                renderTrigger={false}
+              />
+
+              {/* Preview */}
+              <entry.center design={activeDesign as any} theme={miniTheme} />
+
+              {/* Bottom-center dock */}
+              <div
+                className="absolute inset-x-0 z-[80] pointer-events-none"
+                style={{ bottom: dockBottom }}
+              >
+                <div className="mx-auto w-fit flex items-center gap-2 pointer-events-auto">
+                  <button
+                    onClick={() => magRef.current?.toggle()}
+                    className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                    style={{
+                      borderColor: "var(--border)",
+                      color: "var(--fg)",
+                      background:
+                        "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                    }}
+                    title="Inspect Accessibility (Alt+I)"
+                  >
+                    🔎 Inspect Accessibility
+                  </button>
+
+                  <button
+                    onClick={() => setMotionOpen((v) => !v)}
+                    className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
+                    style={{
+                      borderColor: "var(--border)",
+                      color: "var(--fg)",
+                      background:
+                        "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
+                    }}
+                    title="Motion settings"
+                  >
+                    🎞 Motion
+                  </button>
+                </div>
+
+                {motionOpen && (
+                  <div className="mx-auto mt-2 w-fit pointer-events-auto relative z-[90]">
+                    <MotionConfigPanel
+                      open={motionOpen}
+                      onClose={() => setMotionOpen(false)}
+                    />
+                  </div>
                 )}
+              </div>
+            </motion.div>
 
-                {/* Bottom-center dock */}
-                <div
-                  className="absolute inset-x-0 z-[80] pointer-events-none"
-                  style={{ bottom: dockBottom }}
-                >
-                  <div className="mx-auto w-fit flex items-center gap-2 pointer-events-auto">
-                    <button
-                      onClick={() => magRef.current?.toggle()}
-                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--fg)",
-                        background:
-                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
-                      }}
-                      title="Inspect Accessibility (Alt+I)"
-                    >
-                      🔎 Inspect Accessibility
-                    </button>
-
-                    <button
-                      onClick={() => setMotionOpen((v) => !v)}
-                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--fg)",
-                        background:
-                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
-                      }}
-                      title="Motion settings"
-                    >
-                      🎞 Motion
-                    </button>
-                  </div>
-
-                  {motionOpen && (
-                    <div className="mx-auto mt-2 w-fit pointer-events-auto relative z-[90]">
-                      <MotionConfigPanel
-                        open={motionOpen}
-                        onClose={() => setMotionOpen(false)}
-                      />
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-
-              {/* Right controls */}
-              <motion.div
-                variants={colRightV}
-                initial={initialVariant}
-                animate={animateVariant}
-                className="h-full will-change-transform"
-              >
-                <div className="h-full overflow-auto">
-                  {fullKind === "dialog" ? (
-                    <StructurePanel
-                      design={design as DialogDesign}
-                      setDesign={setDesign}
-                    />
-                  ) : (
-                    <NavbarStructurePanel
-                      design={design as NavbarDesign}
-                      setDesign={setDesign}
-                    />
-                  )}
-                </div>
-              </motion.div>
-            </div>
-          ) : (
-            // ===== MINI PREVIEW (button/sheet/tabs/login/…) =====
-            <div className="grid h-full grid-cols-[minmax(0,1fr)]">
-              <motion.div
-                key={`mini-${slug}`}
-                ref={centerRef as any}
-                variants={centerV}
-                initial={initialVariant}
-                animate={animateVariant}
-                className="relative h-full min-w-0 overflow-hidden flex items-center justify-center"
-              >
-                {/* A11y magnifier; hide built-in trigger */}
-                <A11yMagnifier
-                  ref={magRef}
-                  containerRef={centerRef}
-                  renderTrigger={false}
+            {/* Right controls */}
+            <motion.div
+              variants={colRightV}
+              initial={initialVariant}
+              animate={animateVariant}
+              className="h-full will-change-transform"
+            >
+              <div className="h-full overflow-auto">
+                <entry.right
+                  design={activeDesign as any}
+                  setDesign={setActiveDesign as any}
                 />
-
-                {/* The actual mini */}
-                <div className="max-w-xl w-full px-6">
-                  <MiniPreviewSwitch slug={slug} theme={miniTheme} />
-                </div>
-
-                {/* Bottom-center dock */}
-                <div
-                  className="absolute inset-x-0 z-[80] pointer-events-none"
-                  style={{ bottom: dockBottom }}
-                >
-                  <div className="mx-auto w-fit flex items-center gap-2 pointer-events-auto">
-                    <button
-                      onClick={() => magRef.current?.toggle()}
-                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--fg)",
-                        background:
-                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
-                      }}
-                      title="Inspect Accessibility (Alt+I)"
-                    >
-                      🔎 Inspect Accessibility
-                    </button>
-
-                    <button
-                      onClick={() => setMotionOpen((v) => !v)}
-                      className="rounded-full border px-3 py-1.5 text-xs shadow-sm"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--fg)",
-                        background:
-                          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, transparent), color-mix(in srgb, var(--bg) 60%, transparent))",
-                      }}
-                      title="Motion settings"
-                    >
-                      🎞 Motion
-                    </button>
-                  </div>
-
-                  {motionOpen && (
-                    <div className="mx-auto mt-2 w-fit pointer-events-auto relative z-[90]">
-                      <MotionConfigPanel
-                        open={motionOpen}
-                        onClose={() => setMotionOpen(false)}
-                      />
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            </div>
-          )}
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
 
-      {/* Color dock */}
-      <ColorDockBar design={design as any} setDesign={setDesign} />
+      {/* Color dock — edit theme colors; bind to themeSource */}
+      <ColorDockBar
+        design={themeSource as any}
+        setDesign={
+          (active === "navbar" ? setNavbarDesign : setDialogDesign) as any
+        }
+      />
 
       {/* A11y Alerts */}
       <A11yAlerts
         themeLike={{
-          bg: design.colors.bg,
-          fg: design.colors.fg,
-          titleFg: design.colors.titleFg,
-          bodyFg: design.colors.bodyFg,
-          accent: design.colors.accent,
-          border: design.colors.border,
+          bg: themeSource.colors.bg,
+          fg: themeSource.colors.fg,
+          titleFg: themeSource.colors.titleFg,
+          bodyFg: themeSource.colors.bodyFg,
+          accent: themeSource.colors.accent,
+          border: themeSource.colors.border,
         }}
-        onFixAll={(u) =>
-          setDesign((d: { colors: any }) => ({
+        onFixAll={(u) => {
+          setDialogDesign((d: any) => ({
             ...d,
-            colors: {
-              ...d.colors,
-              bg: u.bg,
-              fg: u.fg,
-              titleFg: u.titleFg,
-              bodyFg: u.bodyFg,
-              accent: u.accent,
-              border: u.border,
-            },
-          }))
-        }
+            colors: { ...d.colors, ...u },
+          }));
+          setNavbarDesign((d: any) => ({
+            ...d,
+            colors: { ...d.colors, ...u },
+          }));
+        }}
       />
     </div>
   );
 }
 
-/* ---------- Background ---------- */
+/* ------------------------------ Background ------------------------------- */
 function AuroraBgFixed() {
   return (
     <>
